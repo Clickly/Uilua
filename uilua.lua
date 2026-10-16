@@ -1,7 +1,3 @@
--- =============================================
---  Chick Chick Hub | Base UI Module (UI CC)
---  Created with WindUI by Footagesus
--- =============================================
 
 local UIOptions = ...
 
@@ -39,13 +35,24 @@ local function mergeOptions(defaults, overrides)
     return result
 end
 
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Clickly/Uilua/refs/heads/main/UiLOL.lua"))()
+local WindUI = loadstring(game:HttpGet("https://longong.xyz/UiLOL.lua"))()
 
 -- =============================================
 -- Setup
 -- =============================================
 
 WindUI:SetNotificationLower(true)
+
+local Window = WindUI:CreateWindow({
+    Title = getOption("Title", "?"),
+    Icon = getOption("Icon", "rbxassetid://?"),
+    Author = getOption("Author", "?"),
+    Folder = getOption("Folder", "Mxzy"),
+    Size = getOption("Size", UDim2.fromOffset(580, 460)),
+    Transparent = getOption("Transparent", true),
+    Theme = getOption("Theme", "Midnight"),
+    SideBarWidth = getOption("SideBarWidth", 200),
+})
 
 -- แนบ WindUI ไปกับ Window เพื่อให้สคริปต์อื่นเรียกใช้ได้
 Window.WindUI = WindUI
@@ -468,6 +475,259 @@ function Window:InitBaseTabs()
             isWindowToggleAction = false
         end)
     end
+
+    -- =============================================
+    -- แท็ป : Misc
+    -- =============================================
+
+    local TabMisc = self:Tab({
+        Title = "Misc",
+        Desc = "System Support Player",
+        Icon  = "wrench",
+    })
+
+    local LowOptions = type(UIOptions.Low) == "table" and UIOptions.Low or {}
+    local SectionLow = TabMisc:Section({
+        Title = LowOptions.SectionTitle or "Performance",
+        Desc  = LowOptions.SectionDesc or "FPS boost and anti AFK",
+        Icon  = LowOptions.SectionIcon or "gauge",
+        Side  = LowOptions.Side or "left",
+    })
+
+    local function runLowMode(state, notifyUser)
+        local enabled = setPerformanceMode(state == true)
+
+        if type(LowOptions.Callback) == "function" then
+            pcall(LowOptions.Callback, enabled)
+        end
+
+        if notifyUser then
+            WindUI:Notify({
+                Title = "FPS Boost",
+                Content = enabled and "Performance mode applied" or "Graphics restored",
+                Duration = 3,
+                Icon = enabled and "gauge" or "rotate-ccw",
+            })
+        end
+    end
+
+    SectionLow:Toggle({
+        Title       = LowOptions.Title or "FPS Boost",
+        Description = LowOptions.Description or "Lower graphics, effects, shadows, textures, and terrain load",
+        Icon        = LowOptions.Icon or "gauge",
+        Value       = LowOptions.Value == true,
+        Callback    = function(state)
+            runLowMode(state == true, true)
+        end,
+    })
+
+    SectionLow:Button({
+        Title = "Apply FPS Boost",
+        Desc = "Re-apply low graphics to current map objects",
+        Icon = "zap",
+        Callback = function()
+            runLowMode(true, true)
+        end,
+    })
+
+    SectionLow:Button({
+        Title = "Restore Graphics",
+        Desc = "Undo changes made by FPS Boost",
+        Icon = "rotate-ccw",
+        Callback = function()
+            runLowMode(false, true)
+        end,
+    })
+
+    local function getCurrentGameName()
+        local ok, productInfo = pcall(function()
+            return MarketplaceService:GetProductInfo(game.PlaceId)
+        end)
+
+        if ok and type(productInfo) == "table" and productInfo.Name then
+            return tostring(productInfo.Name)
+        end
+
+        return tostring(game.Name)
+    end
+
+    local currentJobId = tostring(game.JobId or "")
+    local currentGameName = getCurrentGameName()
+    local serverInfoText = table.concat({
+        "Game Name: " .. currentGameName,
+        "Game ID: " .. tostring(game.PlaceId),
+        "Universe ID: " .. tostring(game.GameId),
+        "Job ID: " .. (currentJobId ~= "" and currentJobId or "Unavailable"),
+    }, "\n")
+
+    local SectionServer = TabMisc:Section({
+        Title = "Server Hop",
+        Desc = "Join a server by its Job ID",
+        Icon = "server",
+        Side = "right",
+    })
+
+    SectionServer:Paragraph({
+        Title = "Current Server",
+        Desc = serverInfoText,
+    })
+
+    local requestedJobId = ""
+
+    SectionServer:Input({
+        Title = "Job ID",
+        Desc = "Paste the Job ID of the server you want to join",
+        Placeholder = "Enter Job ID",
+        InputIcon = "key-round",
+        Callback = function(value)
+            requestedJobId = tostring(value or "")
+        end,
+    })
+
+    SectionServer:Button({
+        Title = "Join Server",
+        Desc = "Teleport to the entered Job ID",
+        Icon = "log-in",
+        Callback = function()
+            local jobId = requestedJobId:gsub("^%s*(.-)%s*$", "%1")
+
+            if jobId == "" then
+                WindUI:Notify({
+                    Title = "Server Hop",
+                    Content = "Please enter a Job ID first",
+                    Duration = 4,
+                    Icon = "alert-circle",
+                })
+                return
+            end
+
+            local ok, errorMessage = pcall(function()
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, LocalPlayer)
+            end)
+
+            if not ok then
+                WindUI:Notify({
+                    Title = "Server Hop Failed",
+                    Content = tostring(errorMessage),
+                    Duration = 5,
+                    Icon = "alert-circle",
+                })
+            else
+                WindUI:Notify({
+                    Title = "Joining Server",
+                    Content = "Teleport request sent",
+                    Duration = 4,
+                    Icon = "log-in",
+                })
+            end
+        end,
+    })
+
+    SectionServer:Button({
+        Title = "Copy Current Job ID",
+        Desc = "Copy this server ID for sharing or joining",
+        Icon = "copy",
+        Callback = function()
+            if currentJobId == "" then
+                WindUI:Notify({
+                    Title = "Server Hop",
+                    Content = "Current Job ID is unavailable",
+                    Duration = 4,
+                    Icon = "alert-circle",
+                })
+                return
+            end
+
+            local copied = copyToClipboard(currentJobId)
+            WindUI:Notify({
+                Title = copied and "Copied!" or "Clipboard Unavailable",
+                Content = copied and "Current Job ID copied to clipboard" or "Your executor does not support clipboard access",
+                Duration = 4,
+                Icon = copied and "clipboard-check" or "alert-circle",
+            })
+        end,
+    })
+
+    if LowOptions.Value == true then
+        task.defer(function()
+            runLowMode(true, false)
+        end)
+    end
+
+    -- Advanced Anti-AFK (Auto Background)
+    task.spawn(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        
+        if getconnections then
+            for _, v in pairs(getconnections(LocalPlayer.Idled)) do
+                if v["Disable"] then
+                    v:Disable()
+                elseif v["Disconnect"] then
+                    v:Disconnect()
+                end
+            end
+        end
+        
+        if _G._mxzyAntiAfkConnection then
+            pcall(function()
+                _G._mxzyAntiAfkConnection:Disconnect()
+            end)
+        end
+
+        _G._mxzyAntiAfkConnection = LocalPlayer.Idled:Connect(function()
+            pcall(function()
+                local camera = workspace.CurrentCamera
+                local cameraCFrame = camera and camera.CFrame or CFrame.new()
+                VirtualUser:Button2Down(Vector2.new(0, 0), cameraCFrame)
+                task.wait(1)
+                VirtualUser:Button2Up(Vector2.new(0, 0), cameraCFrame)
+            end)
+        end)
+    end)
+
+    -- =============================================
+    -- Mobile Toggle Button
+    -- =============================================
+    local CoreGui = game:GetService("CoreGui")
+    local PlayerGui = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
+
+    local function removeOldToggle(parent)
+        if not parent then
+            return
+        end
+
+        for _, child in ipairs(parent:GetChildren()) do
+            if child.Name == "ChickChickToggle" or child.Name == "MxzyToggle" or child.Name == "MxzyToggle" then
+                child:Destroy()
+            end
+        end
+    end
+    
+    -- ลบอันเก่าถ้ามี (ป้องกันปุ่มทับซ้อนเวลารันใหม่)
+    removeOldToggle(CoreGui)
+    if gethui then
+        removeOldToggle(gethui())
+    end
+    removeOldToggle(PlayerGui)
+
+    local toggleGui = Instance.new("ScreenGui")
+    toggleGui.Name = "MxzyToggle"
+    toggleGui.ResetOnSpawn = false
+
+    if gethui then
+        toggleGui.Parent = gethui()
+    elseif syn and syn.protect_gui then
+        syn.protect_gui(toggleGui)
+        toggleGui.Parent = CoreGui
+    else
+        local ok = pcall(function() toggleGui.Parent = CoreGui end)
+        if not ok then
+            toggleGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+        end
+    end
+
+    local toggleDestroyed = false
+    local toggleConnections = {}
 
     local function trackConnection(signal, callback)
         local ok, connection = pcall(function()
