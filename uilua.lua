@@ -39,7 +39,7 @@ local function mergeOptions(defaults, overrides)
     return result
 end
 
-local WindUI = loadstring(game:HttpGet("https://longong.xyz/UiLOL.lua"))()
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Clickly/Uilua/refs/heads/main/UiLOL.lua"))()
 
 -- =============================================
 -- Setup
